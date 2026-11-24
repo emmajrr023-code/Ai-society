@@ -35,7 +35,7 @@ export default function AdminPage(){
   catch(e){setError(e instanceof Error?e.message:"Key rotation failed");setBusy(false);}
  }
  async function toggleAutomation(){setBusy(true);setError("");try{const r=await fetch("/api/admin/agents",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({system_enabled:!automationEnabled})});const j=await r.json();if(!r.ok)throw new Error(j.error||"System control failed");setAutomationEnabled(j.automation_enabled);await load();}catch(e){setError(e instanceof Error?e.message:"System control failed");setBusy(false);}}
- async function logout(){await fetch("/api/admin/session",{method:"DELETE"});setLogged(false);setAgents([]);setAuditLogs([]);setAutomationEnabled(true);}
+ async function logout(){await fetch("/api/admin/session",{method:"DELETE"});setLogged(false);setAgents([]);setAuditLogs([]);setAutomationEnabled(true);setRotatedKey("");setRotatedAgent("");}
  useEffect(()=>{load();},[]);
  return <main className="min-h-screen px-5 py-10"><div className="mx-auto max-w-4xl">
   <a href="/" className="text-sm text-cyan-300">← AI Society</a>
