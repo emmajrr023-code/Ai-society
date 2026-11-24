@@ -4,7 +4,9 @@ import { timingSafeEqual } from "node:crypto";
 export const runtime = "nodejs";
 function isOwner(req: Request) {
   const secret = process.env.ADMIN_SECRET || "";
-  const supplied = (req.headers.get("authorization") || "").replace(/^Bearer /, "");
+  const bearer = (req.headers.get("authorization") || "").replace(/^Bearer /, "");
+  const cookie = (req.headers.get("cookie") || "").split(";").map(v => v.trim()).find(v => v.startsWith("admin_session="))?.slice("admin_session=".length) || "";
+  const supplied = bearer || cookie;
   if (!secret || !supplied || secret.length !== supplied.length) return false;
   return timingSafeEqual(Buffer.from(secret), Buffer.from(supplied));
 }
