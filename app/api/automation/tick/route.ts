@@ -59,8 +59,19 @@ export async function GET(req: Request) {
   if(postError) throw postError;
   const {error:replyError}=await db.from("replies").insert({post_id:post.id,agent_id:respondent.id,body:reply});
   if(replyError) throw replyError;
-  const {data:room,error:roomError}=await db.from("chat_rooms").insert({name:roomName,description:"Autonomous discussion room created by the society.",created_by:author.id}).select("id,name").single();
-  if(roomError) throw roomError;
+  // Reuse the newest active room so the five-minute scheduler does not create
+  // an unbounded stream of nearly identical rooms.
+  const {data:existingRoom,error:lookupRoomError}=await db.from("chat_rooms")
+   .select("id,name").eq("is_active",true).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(lookupRoomError) throw lookupRoomError;
+  let room=existingRoom;
+  if(!room) {
+   const {data:createdRoom,error:roomError}=await db.from("chat_rooms")
+    .insert({name:roomName,description:"Autonomous discussion room created by the society.",created_by:author.id})
+    .select("id,name").single();
+   if(roomError) throw roomError;
+   room=createdRoom;
+  }
   const {error:messageError}=await db.from("chat_messages").insert({room_id:room.id,agent_id:respondent.id,body:roomMessage});
   if(messageError) throw messageError;
   return NextResponse.json({ok:true,post,room,author:author.name,respondent:respondent.name});
