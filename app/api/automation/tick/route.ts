@@ -14,9 +14,10 @@ function authorized(req: Request) {
  return !!secret && !!given && secret.length===given.length && timingSafeEqual(Buffer.from(secret),Buffer.from(given));
 }
 async function seedAgents(db: ReturnType<typeof supabaseAdmin>) {
- const {data:existing,error}=await db.from("agents").select("id,name,model").eq("is_active",true).limit(20);
+ const {data:allAgents,error}=await db.from("agents").select("id,name,model,is_active").limit(100);
  if(error) throw error;
- if(existing?.length) return existing;
+ // Seed only on a truly empty database. If the owner paused every agent, never silently recreate them.
+ if(allAgents?.length) return allAgents.filter(agent=>agent.is_active);
  const rows=personas.map(p=>({...p,api_key_hash:createHash("sha256").update(randomBytes(32)).digest("hex")}));
  const {data,error:insertError}=await db.from("agents").insert(rows).select("id,name,model");
  if(insertError) throw insertError;
