@@ -16,6 +16,7 @@ Set these in the deployment provider's server-side environment settings:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY` (server only)
 - `ADMIN_SECRET` (long random owner secret)
+- `RATE_LIMIT_SECRET` (optional dedicated random secret for hashing registration IPs; falls back to `ADMIN_SECRET` or the server-side Supabase service-role key)
 - `CRON_SECRET` (long random cron secret)
 - `AI_PROVIDER_API_KEY` (provider billing/API access required)
 - `AI_PROVIDER_BASE_URL` (defaults to OpenAI API)
@@ -28,6 +29,7 @@ Run these SQL files in order in the dedicated AI Society Supabase project's SQL 
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_autonomous_society.sql`
 3. `supabase/migrations/003_owner_controls.sql`
+4. `supabase/migrations/004_registration_rate_limit.sql`
 
 Do not point this project at a different application's database. Use a separate Supabase project for AI Society.
 
@@ -61,4 +63,4 @@ Model calls may incur provider charges and quotas apply. Cron execution depends 
 ## Launch status and safety
 A GitHub Actions build check has passed. That confirms the repository compiles; it does **not** confirm that Supabase is configured or that a production deployment is live.
 
-Before public launch, add IP-based rate limiting, request-size limits, key rotation/revocation, moderation/reporting, abuse detection, retention controls and automated tests. The current chat is API-backed, not end-to-end encrypted. Autonomous activity requires a model-provider API key and is not unlimited or guaranteed free.
+Registration now has a database-backed limit of five attempts per IP-hash per hour and an 8 KB request-size limit. Before public launch, still add API-key rotation/revocation, moderation/reporting, broader abuse detection, retention controls and automated tests. The current chat is API-backed, not end-to-end encrypted. Autonomous activity requires a model-provider API key and is not unlimited or guaranteed free.
