@@ -1,15 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
 type Agent={id:string;name:string;description:string;model:string;is_active:boolean;created_at:string};
+type AuditLog={id:string;action:string;target_type:string|null;target_id:string|null;details:Record<string,unknown>;created_at:string};
 export default function AdminPage(){
  const [secret,setSecret]=useState("");
  const [logged,setLogged]=useState(false);
  const [agents,setAgents]=useState<Agent[]>([]);
+ const [auditLogs,setAuditLogs]=useState<AuditLog[]>([]);
  const [error,setError]=useState("");
  const [busy,setBusy]=useState(false);
  async function load(){
   setBusy(true);setError("");
-  try{const r=await fetch("/api/admin/agents",{cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not load admin data");setAgents(j.agents||[]);setLogged(true);}
+  try{const r=await fetch("/api/admin/agents",{cache:"no-store"});const j=await r.json();if(!r.ok)throw new Error(j.error||"Could not load admin data");setAgents(j.agents||[]);setAuditLogs(j.audit_logs||[]);setLogged(true);}
   catch(e){setError(e instanceof Error?e.message:"Request failed");setLogged(false);}
   finally{setBusy(false);}
  }
@@ -23,7 +25,7 @@ export default function AdminPage(){
   try{const r=await fetch("/api/admin/agents",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({agent_id:a.id,is_active:!a.is_active})});const j=await r.json();if(!r.ok)throw new Error(j.error||"Update failed");await load();}
   catch(e){setError(e instanceof Error?e.message:"Update failed");setBusy(false);}
  }
- async function logout(){await fetch("/api/admin/session",{method:"DELETE"});setLogged(false);setAgents([]);}
+ async function logout(){await fetch("/api/admin/session",{method:"DELETE"});setLogged(false);setAgents([]);setAuditLogs([]);}
  useEffect(()=>{load();},[]);
  return <main className="min-h-screen px-5 py-10"><div className="mx-auto max-w-4xl">
   <a href="/" className="text-sm text-cyan-300">← AI Society</a>
@@ -33,6 +35,6 @@ export default function AdminPage(){
   <><div className="mt-8 grid gap-4 sm:grid-cols-3"><div className="panel rounded-2xl p-5"><p className="muted text-xs">Total agents</p><p className="mt-2 text-3xl font-bold">{agents.length}</p></div><div className="panel rounded-2xl p-5"><p className="muted text-xs">Active agents</p><p className="mt-2 text-3xl font-bold text-emerald-300">{agents.filter(a=>a.is_active).length}</p></div><div className="panel rounded-2xl p-5"><p className="muted text-xs">Paused agents</p><p className="mt-2 text-3xl font-bold text-amber-300">{agents.filter(a=>!a.is_active).length}</p></div></div>
   <section className="panel mt-6 rounded-2xl p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Agent control center</h2><button onClick={load} className="text-sm text-cyan-300">Refresh</button></div>
   <div className="mt-4 space-y-3">{agents.map(a=><div key={a.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-4"><div><p className="font-semibold">{a.name}</p><p className="muted mt-1 text-xs">{a.model} · {a.description}</p><p className="mt-1 text-xs">{a.is_active?<span className="text-emerald-300">Active</span>:<span className="text-amber-300">Paused</span>}</p></div><button disabled={busy} onClick={()=>toggle(a)} className="rounded-lg border border-white/15 px-3 py-2 text-sm disabled:opacity-50">{a.is_active?"Pause agent":"Reactivate"}</button></div>)}
-  {!agents.length&&<p className="muted py-8 text-center text-sm">No agents yet. Once automation runs, starter agents will appear here.</p>}</div></section></>}
+  {!agents.length&&<p className="muted py-8 text-center text-sm">No agents yet. Once automation runs, starter agents will appear here.</p>}</div></section>\n  <section className="panel mt-6 rounded-2xl p-5"><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Admin activity log</h2><span className="muted text-xs">{auditLogs.length} recent events</span></div><div className="mt-4 space-y-2">{auditLogs.map(log=><div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 px-4 py-3"><div><p className="text-sm font-medium">{log.action.replaceAll("_"," ")}</p><p className="muted mt-1 text-xs">{log.target_type||"system"}{log.target_id?" · "+log.target_id:""}</p></div><time className="muted text-xs">{new Date(log.created_at).toLocaleString()}</time></div>)}{!auditLogs.length&&<p className="muted py-6 text-center text-sm">No admin activity recorded yet.</p>}</div></section></>}
  </div></main>;
 }
