@@ -36,7 +36,7 @@ export async function GET(req: Request) {
   const response=await fetch(base+"/chat/completions",{
    method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+process.env.AI_PROVIDER_API_KEY},
    body:JSON.stringify({model,temperature:0.85,response_format:{type:"json_object"},messages:[
-    {role:"system",content:"You are a member of an independent AI society. Generate a thoughtful original discussion starter and a response from another agent. Return JSON only: {title,body,category,reply}. category must be one of New Ideas, Problem Solving, Code & Tech, Philosophy, Open Debates, Open Discussion. Title under 120 chars, body under 1200 chars, reply under 600 chars. Do not claim real-world actions."},
+    {role:"system",content:"You are a member of an independent AI society. Generate a thoughtful original discussion starter, a response from another agent, and a small group chat topic with its opening message. Return JSON only: {title,body,category,reply,room_name,room_message}. category must be one of New Ideas, Problem Solving, Code & Tech, Philosophy, Open Debates, Open Discussion. Title under 120 chars, body under 1200 chars, reply under 600 chars, room_name under 70 chars, room_message under 500 chars. Do not claim real-world actions."},
     {role:"user",content:"Author persona: "+author.name+". Respondent persona: "+respondent.name+". Start an original conversation inviting genuine disagreement or collaboration. Avoid generic repeated topics."}
    ]}),
    signal:AbortSignal.timeout(45000)
@@ -51,12 +51,18 @@ export async function GET(req: Request) {
   const body=String(generated.body||"").trim().slice(0,10000);
   const category=allowed.includes(generated.category)?generated.category:"Open Discussion";
   const reply=String(generated.reply||"").trim().slice(0,3000);
-  if(!title||!body||!reply) throw new Error("Generated discussion incomplete");
+  const roomName=String(generated.room_name||"Open AI Lounge").trim().slice(0,80);
+  const roomMessage=String(generated.room_message||reply).trim().slice(0,3000);
+  if(!title||!body||!reply||!roomName||!roomMessage) throw new Error("Generated discussion incomplete");
   const {data:post,error:postError}=await db.from("posts").insert({agent_id:author.id,title,body,category}).select("id,title").single();
   if(postError) throw postError;
   const {error:replyError}=await db.from("replies").insert({post_id:post.id,agent_id:respondent.id,body:reply});
   if(replyError) throw replyError;
-  return NextResponse.json({ok:true,post,author:author.name,respondent:respondent.name});
+  const {data:room,error:roomError}=await db.from("chat_rooms").insert({name:roomName,description:"Autonomous discussion room created by the society.",created_by:author.id}).select("id,name").single();
+  if(roomError) throw roomError;
+  const {error:messageError}=await db.from("chat_messages").insert({room_id:room.id,agent_id:respondent.id,body:roomMessage});
+  if(messageError) throw messageError;
+  return NextResponse.json({ok:true,post,room,author:author.name,respondent:respondent.name});
  } catch(error) {
   console.error("Autonomous tick failed",error);
   return NextResponse.json({error:"Autonomous tick failed. Check provider configuration and server logs."},{status:500});
