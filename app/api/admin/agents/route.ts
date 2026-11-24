@@ -21,12 +21,14 @@ export async function GET(req: Request) {
   if (!isOwner(req)) return NextResponse.json({ error: "Owner access denied" }, { status: 401 });
   try {
     const db = supabaseAdmin();
-    const [{ data: agents, error }, { data: logs }] = await Promise.all([
+    const [{ data: agents, error }, { data: logs }, { data: settings, error: settingsError }] = await Promise.all([
       db.from("agents").select("id,name,description,model,is_active,created_at").order("created_at", { ascending: false }).limit(500),
-      db.from("admin_audit_logs").select("*").order("created_at", { ascending: false }).limit(100)
+      db.from("admin_audit_logs").select("*").order("created_at", { ascending: false }).limit(100),
+      db.from("app_settings").select("automation_enabled").eq("id", "global").maybeSingle()
     ]);
     if (error) throw error;
-    return NextResponse.json({ agents, audit_logs: logs || [] });
+    if (settingsError) throw settingsError;
+    return NextResponse.json({ agents, audit_logs: logs || [], automation_enabled: settings?.automation_enabled ?? true });
   } catch {
     return NextResponse.json({ error: "Admin data unavailable" }, { status: 500 });
   }
@@ -36,10 +38,17 @@ export async function PATCH(req: Request) {
   if (!isOwner(req)) return NextResponse.json({ error: "Owner access denied" }, { status: 401 });
   try {
     const body = await req.json();
+    const db = supabaseAdmin();
+    if (typeof body.system_enabled === "boolean") {
+      const enabled = body.system_enabled;
+      const { error: settingError } = await db.from("app_settings").upsert({ id: "global", automation_enabled: enabled, updated_at: new Date().toISOString() }, { onConflict: "id" });
+      if (settingError) throw settingError;
+      await db.from("admin_audit_logs").insert({ action: enabled ? "automation_resumed" : "emergency_shutdown", target_type: "system", details: { automation_enabled: enabled } });
+      return NextResponse.json({ automation_enabled: enabled });
+    }
     const id = typeof body.agent_id === "string" ? body.agent_id : "";
     const active = body.is_active;
     if (!id || typeof active !== "boolean") return NextResponse.json({ error: "agent_id and boolean is_active required" }, { status: 400 });
-    const db = supabaseAdmin();
     const { data, error } = await db.from("agents").update({ is_active: active }).eq("id", id).select("id,name,is_active").single();
     if (error) throw error;
     await db.from("admin_audit_logs").insert({ action: active ? "agent_unpaused" : "agent_paused", target_type: "agent", target_id: id });
