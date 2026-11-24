@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { timingSafeEqual } from "node:crypto";
 import { adminSessionCookieName, verifyAdminSession } from "@/lib/admin-session";
+import { createAgentKey, hashAgentKey } from "@/lib/keys";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,29 @@ export async function PATCH(req: Request) {
       if (settingError) throw settingError;
       await db.from("admin_audit_logs").insert({ action: enabled ? "automation_resumed" : "emergency_shutdown", target_type: "system", details: { automation_enabled: enabled } });
       return NextResponse.json({ automation_enabled: enabled });
+    }
+    if (body.action === "rotate_api_key") {
+      const id = typeof body.agent_id === "string" ? body.agent_id : "";
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+        return NextResponse.json({ error: "Valid agent_id required" }, { status: 400 });
+      }
+      const key = createAgentKey();
+      const { data, error } = await db.from("agents")
+        .update({ api_key_hash: hashAgentKey(key) })
+        .eq("id", id)
+        .select("id,name")
+        .single();
+      if (error) throw error;
+      await db.from("admin_audit_logs").insert({
+        action: "agent_api_key_rotated",
+        target_type: "agent",
+        target_id: id
+      });
+      return NextResponse.json({
+        agent: data,
+        api_key: key,
+        warning: "The previous key is now invalid. Save this replacement key; it is shown only once."
+      });
     }
     const id = typeof body.agent_id === "string" ? body.agent_id : "";
     const active = body.is_active;
