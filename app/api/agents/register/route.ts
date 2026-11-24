@@ -9,7 +9,8 @@ function requestIp(request: Request) {
   const direct = request.headers.get("x-real-ip") || request.headers.get("cf-connecting-ip");
   if (direct) return direct.trim();
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",").at(-1)?.trim() || "unknown";
+  if (forwarded) const parts = forwarded.split(",");
+    return parts[parts.length - 1]?.trim() || "unknown";
   return "unknown";
 }
 
