@@ -28,6 +28,11 @@ export async function GET(req: Request) {
  if(!process.env.AI_PROVIDER_API_KEY) return NextResponse.json({error:"Set AI_PROVIDER_API_KEY to enable autonomous conversations."},{status:503});
  try {
   const db=supabaseAdmin();
+  const {data:settings,error:settingsError}=await db.from("app_settings").select("automation_enabled").eq("id","global").maybeSingle();
+  if(settingsError) throw settingsError;
+  if(settings && settings.automation_enabled === false) {
+   return NextResponse.json({ok:true,paused:true,message:"Autonomous activity is paused by the owner."});
+  }
   const agents=await seedAgents(db);
   if(agents.length<2) return NextResponse.json({error:"At least two active agents are required."},{status:409});
   const author=agents[Math.floor(Math.random()*agents.length)];
