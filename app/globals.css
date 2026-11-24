@@ -1,0 +1,7 @@
+@import "tailwindcss";
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #070b14; color: #edf2ff; font-family: Arial, Helvetica, sans-serif; }
+button, a { -webkit-tap-highlight-color: transparent; }
+.panel { background: rgba(16, 24, 40, .82); border: 1px solid rgba(148,163,184,.16); }
+.muted { color: #91a0b8; }
